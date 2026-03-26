@@ -81,17 +81,31 @@ if [ -d "syscalls" ]; then
         # Add to kernel/syscall.c (routing)
         if ! grep -q "sys_$syscall_name(void);" xv6/kernel/syscall.c; then
             sed -i "/sys_close(void);/a extern uint64 sys_$syscall_name(void);" xv6/kernel/syscall.c
-            sed -i "/\[SYS_close\]/a \\\t[SYS_$syscall_name]   sys_$syscall_name," xv6/kernel/syscall.c
-            echo "  -> Added [syscall.c] routing."
+            echo "  -> Added [syscall.c] extern prototype."
         fi
 
-        # Add implementation to kernel/sysproc.c
-        if ! grep -q "sys_$syscall_name(" xv6/kernel/sysproc.c; then
-            echo "" >> xv6/kernel/sysproc.c
-            # Append everything except the PROTOTYPE comment
-            grep -v "^// PROTOTYPE:" "$file" >> xv6/kernel/sysproc.c
-            echo "  -> Appended implementation to [sysproc.c]."
+        if ! grep -q "\[SYS_$syscall_name\][[:space:]]*sys_$syscall_name," xv6/kernel/syscall.c; then
+            sed -i "/\[SYS_close\]/a \\\t[SYS_$syscall_name]   sys_$syscall_name," xv6/kernel/syscall.c
+            echo "  -> Added [syscall.c] dispatch table entry."
         fi
+
+        # Update implementation in kernel/sysproc.c
+        START_MARKER="// --- BEGIN SYSCALL $syscall_name ---"
+        END_MARKER="// --- END SYSCALL $syscall_name ---"
+
+        # 1. Delete the old version if it exists
+        if grep -Fq "$START_MARKER" xv6/kernel/sysproc.c; then
+            sed -i "\|$START_MARKER|,\|$END_MARKER|d" xv6/kernel/sysproc.c
+            echo "  -> Removed old implementation from [sysproc.c]."
+        fi
+
+        # 2. Inject the fresh version
+        echo "" >> xv6/kernel/sysproc.c
+        echo "$START_MARKER" >> xv6/kernel/sysproc.c
+        grep -v "^// PROTOTYPE:" "$file" >> xv6/kernel/sysproc.c
+        echo "$END_MARKER" >> xv6/kernel/sysproc.c
+        echo "  -> Injected fresh implementation into [sysproc.c]."
+
     done
 else
     echo "  -> No syscalls/ directory found. Skipping."

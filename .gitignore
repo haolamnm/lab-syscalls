@@ -5,3 +5,5 @@ xv6
 commands/*.asm
 commands/*.o
 commands/*.d
+
+.DS_Store

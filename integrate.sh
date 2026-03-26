@@ -85,7 +85,7 @@ if [ -d "syscalls" ]; then
         fi
 
         if ! grep -q "\[SYS_$syscall_name\][[:space:]]*sys_$syscall_name," xv6/kernel/syscall.c; then
-            sed -i "/\[SYS_close\]/a \\\t[SYS_$syscall_name]   sys_$syscall_name," xv6/kernel/syscall.c
+            sed -i "/\[SYS_close\][[:space:]]*sys_close,/a \\\t[SYS_$syscall_name]   sys_$syscall_name," xv6/kernel/syscall.c
             echo "  -> Added [syscall.c] dispatch table entry."
         fi
 

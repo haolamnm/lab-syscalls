@@ -23,6 +23,19 @@ else
     echo "  -> tracemask already exists. Skipping."
 fi
 
+# Ensure expected source folders/files exist for integrate.sh
+mkdir -p commands syscalls
+
+if [ -f "sysinfotest.c" ] && [ ! -f "commands/sysinfotest.c" ]; then
+    cp sysinfotest.c commands/sysinfotest.c
+    echo "  -> Copied [sysinfotest.c] to commands/."
+fi
+
+if [ -f "sysinfo.c" ] && [ ! -f "syscalls/sysinfo.c" ]; then
+    cp sysinfo.c syscalls/sysinfo.c
+    echo "  -> Copied [sysinfo.c] to syscalls/."
+fi
+
 # 4. Patch proc.c tracemask lifecycle behavior
 echo "Patching [proc.c] tracemask lifecycle..."
 if ! awk '
@@ -113,7 +126,7 @@ else
     echo "  -> Trace print hook already exists. Skipping."
 fi
 
-# 3. Create kernel/ptree.h
+# 7. Create kernel/ptree.h
 if [ ! -f "xv6/kernel/ptree.h" ]; then
     cat << 'EOF' > xv6/kernel/ptree.h
 #ifndef _PTREE_H_
@@ -134,7 +147,7 @@ EOF
     echo "  -> Created [ptree.h] in xv6/kernel/"
 fi
 
-# 4. Append fetchptree() helper to kernel/proc.c
+# 8. Append fetchptree() helper to kernel/proc.c
 if ! grep -q "fetchptree" xv6/kernel/proc.c; then
     cat << 'EOF' >> xv6/kernel/proc.c
 
@@ -189,7 +202,7 @@ EOF
     echo "  -> Appended [fetchptree] helper to proc.c"
 fi
 
-# 5. Add fetchptree declaration to kernel/defs.h
+# 9. Add fetchptree declaration to kernel/defs.h
 if ! grep -q "fetchptree" xv6/kernel/defs.h; then
     if grep -q "procdump" xv6/kernel/defs.h; then
         sed -i '/void[[:space:]]*procdump(void);/a int             fetchptree(uint64, int);' xv6/kernel/defs.h
@@ -199,11 +212,11 @@ if ! grep -q "fetchptree" xv6/kernel/defs.h; then
     fi
 fi
 
-# 6. Add ptree.h include to user/user.h
+# 10. Add ptree.h include to user/user.h
 if ! grep -q "ptree.h" xv6/user/user.h; then
     sed -i '1i #include "../kernel/ptree.h"' xv6/user/user.h
     echo "  -> Added [#include ptree.h] to user.h"
 fi
 
-# 7. Inform the user about the patching process
+# 11. Inform the user about the patching process
 echo "Patch completed successfully!"

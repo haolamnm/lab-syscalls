@@ -98,4 +98,6 @@ else
 fi
 
 echo ""
+
+echo ""
 echo "Integration complete! Run 'make qemu' inside the xv6 folder to test."

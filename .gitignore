@@ -1,0 +1,7 @@
+# Ignore xv6 source code
+xv6
+
+# Ignore compiled binaries
+commands/*.asm
+commands/*.o
+commands/*.d

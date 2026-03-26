@@ -112,6 +112,5 @@ if [ -d "syscalls" ]; then
 else
     echo "  -> No syscalls/ directory found. Skipping."
 fi
-
 echo ""
 echo "Integration complete! Run 'make qemu' inside the xv6 folder to test."

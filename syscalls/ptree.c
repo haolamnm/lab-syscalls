@@ -13,7 +13,7 @@ sys_ptree(void)
   argint(1, &max);
 
   // Validate arguments
-  if (max <= 0)
+  if (buf == 0 || max <= 0)
     return -1;
 
   // Call the helper function in proc.c

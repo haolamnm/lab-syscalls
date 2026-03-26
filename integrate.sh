@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Ensure xv6 directory exists
 if [ ! -d "xv6" ]; then
     echo "Error: xv6 folder not found."

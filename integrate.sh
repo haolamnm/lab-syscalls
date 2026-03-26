@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Ensure xv6 directory exists
 if [ ! -d "xv6" ]; then
     echo "Error: xv6 folder not found."
@@ -81,20 +83,127 @@ if [ -d "syscalls" ]; then
         # Add to kernel/syscall.c (routing)
         if ! grep -q "sys_$syscall_name(void);" xv6/kernel/syscall.c; then
             sed -i "/sys_close(void);/a extern uint64 sys_$syscall_name(void);" xv6/kernel/syscall.c
-            sed -i "/\[SYS_close\]/a \\\t[SYS_$syscall_name]   sys_$syscall_name," xv6/kernel/syscall.c
-            echo "  -> Added [syscall.c] routing."
+            echo "  -> Added [syscall.c] extern prototype."
         fi
 
-        # Add implementation to kernel/sysproc.c
-        if ! grep -q "sys_$syscall_name(" xv6/kernel/sysproc.c; then
-            echo "" >> xv6/kernel/sysproc.c
-            # Append everything except the PROTOTYPE comment
-            grep -v "^// PROTOTYPE:" "$file" >> xv6/kernel/sysproc.c
-            echo "  -> Appended implementation to [sysproc.c]."
+        if ! grep -q "\[SYS_$syscall_name\][[:space:]]*sys_$syscall_name," xv6/kernel/syscall.c; then
+            sed -i "/\[SYS_close\][[:space:]]*sys_close,/a \\\t[SYS_$syscall_name]   sys_$syscall_name," xv6/kernel/syscall.c
+            echo "  -> Added [syscall.c] dispatch table entry."
         fi
+
+        # Update implementation in kernel/sysproc.c
+        START_MARKER="// --- BEGIN SYSCALL $syscall_name ---"
+        END_MARKER="// --- END SYSCALL $syscall_name ---"
+
+        # 1. Delete the old version if it exists
+        if grep -Fq "$START_MARKER" xv6/kernel/sysproc.c; then
+            sed -i "\|$START_MARKER|,\|$END_MARKER|d" xv6/kernel/sysproc.c
+            echo "  -> Removed old implementation from [sysproc.c]."
+        fi
+
+        # 2. Inject the fresh version
+        echo "" >> xv6/kernel/sysproc.c
+        echo "$START_MARKER" >> xv6/kernel/sysproc.c
+        grep -v "^// PROTOTYPE:" "$file" >> xv6/kernel/sysproc.c
+        echo "$END_MARKER" >> xv6/kernel/sysproc.c
+        echo "  -> Injected fresh implementation into [sysproc.c]."
+
     done
 else
     echo "  -> No syscalls/ directory found. Skipping."
+fi
+
+echo ""
+
+# ==========================================
+# 3. APPLY SUPPORT PATCHES (SYSINFO)
+# ==========================================
+if grep -q "sys_sysinfo" xv6/kernel/sysproc.c; then
+    echo "Applying support patches for sysinfo..."
+
+    # 3.1 Create kernel/sysinfo.h if missing
+    if [ ! -f "xv6/kernel/sysinfo.h" ]; then
+        cat << 'EOF' > xv6/kernel/sysinfo.h
+#ifndef _SYSINFO_H_
+#define _SYSINFO_H_
+
+#include "types.h"
+
+struct sysinfo {
+  uint64 freemem;
+  uint64 nproc;
+};
+
+#endif
+EOF
+        echo "  -> Created [kernel/sysinfo.h]."
+    fi
+
+    # 3.2 Ensure sysproc.c includes sysinfo.h
+    if ! grep -q '#include "sysinfo.h"' xv6/kernel/sysproc.c; then
+        sed -i '/#include "proc.h"/a #include "sysinfo.h"' xv6/kernel/sysproc.c
+        echo "  -> Added [#include \"sysinfo.h\"] to sysproc.c."
+    fi
+
+    # 3.3 Ensure user.h includes sysinfo.h for struct visibility
+    if ! grep -q '#include "kernel/sysinfo.h"' xv6/user/user.h; then
+        sed -i '/struct stat;/a #include "kernel/sysinfo.h"' xv6/user/user.h
+        echo "  -> Added [#include \"kernel/sysinfo.h\"] to user.h."
+    fi
+
+    # 3.4 Ensure freemem/nproc prototypes exist in defs.h
+    if ! grep -q 'freemem(void);' xv6/kernel/defs.h; then
+        sed -i '/void            kinit(void);/a uint64          freemem(void);' xv6/kernel/defs.h
+        echo "  -> Added [freemem] prototype to defs.h."
+    fi
+    if ! grep -q 'nproc(void);' xv6/kernel/defs.h; then
+        sed -i '/void            procdump(void);/a uint64          nproc(void);' xv6/kernel/defs.h
+        echo "  -> Added [nproc] prototype to defs.h."
+    fi
+
+    # 3.5 Ensure freemem() implementation exists
+    if ! grep -q '^freemem(void)' xv6/kernel/kalloc.c; then
+        cat << 'EOF' >> xv6/kernel/kalloc.c
+
+uint64
+freemem(void)
+{
+  struct run *r;
+  uint64 n;
+
+  acquire(&kmem.lock);
+  n = 0;
+  for(r = kmem.freelist; r; r = r->next)
+    n += PGSIZE;
+  release(&kmem.lock);
+  return n;
+}
+EOF
+        echo "  -> Added [freemem()] to kalloc.c."
+    fi
+
+    # 3.6 Ensure nproc() implementation exists
+    if ! grep -q '^nproc(void)' xv6/kernel/proc.c; then
+        cat << 'EOF' >> xv6/kernel/proc.c
+
+uint64
+nproc(void)
+{
+  struct proc *p;
+  uint64 n;
+
+  n = 0;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state != UNUSED)
+      n++;
+    release(&p->lock);
+  }
+  return n;
+}
+EOF
+        echo "  -> Added [nproc()] to proc.c."
+    fi
 fi
 
 echo ""

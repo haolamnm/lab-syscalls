@@ -57,8 +57,9 @@ fetchptree(uint64 buf, int max)
     acquire(&p->lock);
     if (p->state != UNUSED) {
       if (count < max) {
+        struct proc *parent = p->parent;
         info.pid = p->pid;
-        info.ppid = (p->parent) ? p->parent->pid : 0;
+        info.ppid = parent ? parent->pid : 0;
         info.state = p->state;
         info.memsize = p->sz;
         safestrcpy(info.name, p->name, sizeof(info.name));

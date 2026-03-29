@@ -6,4 +6,14 @@ commands/*.asm
 commands/*.o
 commands/*.d
 
+# Ignore submission artifacts
+*.zip
+*.patch
+
+# Ignore temp build directory
+_submit_tmp/
+
+# Ignore test output
+test_output.txt
+
 .DS_Store
